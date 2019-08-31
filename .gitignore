@@ -1,0 +1,14 @@
+# Ignore hidden files
+.*
+
+# Don't ignore some hidden files we might care about
+!.clang-format
+!.dockerignore
+!.gitlab-ci.yml
+!.gitmodules
+!.gitignore
+
+# Ignore build output
+/target
+**/*.rs.bk
+
