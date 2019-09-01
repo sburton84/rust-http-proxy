@@ -7,7 +7,7 @@ pub struct Proxy {
 }
 
 impl Proxy {
-    fn bind(addr: &SocketAddr) -> io::Result<Self> {
+    pub fn bind(addr: &SocketAddr) -> io::Result<Self> {
         let listener = match TcpListener::bind(addr) {
             Ok(l) => l,
             Err(e) => {
@@ -17,7 +17,11 @@ impl Proxy {
         };
 
         Ok(Proxy {
-            listener: listener,
+            listener,
         })
+    }
+
+    pub async fn serve(&self) {
+
     }
 }
