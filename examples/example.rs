@@ -7,8 +7,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let addr: SocketAddr = ("127.0.0.1".parse::<IpAddr>()?, 8888).into();
 
-    let proxy = Proxy::bind(&addr).unwrap();
-    proxy.serve().await;
+    let mut proxy = Proxy::bind(&addr).await?;
+    proxy.serve().await?;
 
     Ok(())
 }
