@@ -3,7 +3,11 @@ use {
         service::ProxyService,
         utils,
     },
-    hyper::server::conn::Http,
+    hyper::{
+        client::HttpConnector,
+        server::conn::Http,
+    },
+    hyper_tls::HttpsConnector,
     tokio::net::TcpStream,
     std::sync::{
         Arc, Mutex,
@@ -17,13 +21,15 @@ pub struct State {
 
 pub struct Connection {
     socket: utils::SyncSocket,
+    connector: HttpsConnector<HttpConnector>,
     state: Arc<Mutex<State>>,
 }
 
 impl Connection {
-    pub fn new(socket: TcpStream) -> Self {
+    pub fn new(socket: TcpStream, connector: HttpsConnector<HttpConnector>) -> Self {
         Connection {
             socket: utils::SyncSocket::new(socket),
+            connector: connector,
             state: Arc::new(Mutex::new(State {
                 tunnel: false,
                 mitm: false,
@@ -36,7 +42,7 @@ impl Connection {
 
         http.serve_connection(
             self.socket.clone(),
-            ProxyService::new(self.state.clone()),
+            ProxyService::new(self.state.clone(), self.connector.clone()),
         ).await?;
 
         Ok(())
