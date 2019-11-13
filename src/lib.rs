@@ -1,7 +1,8 @@
-mod proxy;
 mod connection;
+mod error;
+mod headers;
+mod proxy;
 mod service;
 mod utils;
-mod headers;
 
 pub use proxy::Proxy;

@@ -12,11 +12,16 @@ use {
     std::sync::{
         Arc, Mutex,
     },
+    log::debug,
+    tokio::io::split,
+    tokio::io::AsyncReadExt,
 };
 
-pub struct State {
-    tunnel: bool,
-    mitm: bool,
+#[derive(Clone)]
+pub enum State{
+    Proxy,
+    Tunnel(String),
+    Mitm(String),
 }
 
 pub struct Connection {
@@ -30,10 +35,7 @@ impl Connection {
         Connection {
             socket: utils::SyncSocket::new(socket),
             connector: connector,
-            state: Arc::new(Mutex::new(State {
-                tunnel: false,
-                mitm: false,
-            })),
+            state: Arc::new(Mutex::new(State::Proxy)),
         }
     }
 
@@ -44,6 +46,26 @@ impl Connection {
             self.socket.clone(),
             ProxyService::new(self.state.clone(), self.connector.clone()),
         ).await?;
+
+        let state = self.state.lock().unwrap().clone();
+        match state {
+            State::Proxy => {
+                debug!("Request proxied, nothing else to do");
+            },
+            State::Tunnel(uri) => {
+                let mut stream = TcpStream::connect(uri).await?;
+                let (mut client_read, mut client_write) = split(self.socket.clone());
+                let (mut server_read, mut server_write) = split(stream);
+
+                tokio::spawn(async move {
+                    client_read.copy(&mut server_write).await;
+                });
+                tokio::spawn(async move {
+                    server_read.copy(&mut client_write).await;
+                });
+            },
+            State::Mitm(_uri) => {},
+        };
 
         Ok(())
     }

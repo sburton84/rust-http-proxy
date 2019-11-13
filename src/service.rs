@@ -1,8 +1,7 @@
 use {
     crate::connection::State,
-    crate::headers::remove_proxy_headers,
-    http::uri::Scheme,
-    hyper::{client::HttpConnector, Client, header, Body, Method, Request, Response, StatusCode},
+    crate::headers::{add_proxy_headers, remove_proxy_headers, get_host},
+    hyper::{client::HttpConnector, Client, Body, Method, Request, Response, StatusCode},
     hyper_tls::HttpsConnector,
     log::trace,
     std::future::Future,
@@ -34,9 +33,25 @@ impl ProxyService {
         }
     }
 
-    async fn handle_connect(self, mut req: Request<Body>) -> Result<Response<Body>, Box<dyn std::error::Error + Send + Sync>> {
+    async fn handle_connect(self, req: Request<Body>) -> Result<Response<Body>, Box<dyn std::error::Error + Send + Sync>> {
+        let host = get_host(&req)?;
+
+        // Disallow tunnelling to non-HTTP or HTTPS ports
+        if let Some(port) = req.uri().port_u16() {
+            if port != 443 && port != 80 {
+                return Ok(
+                    Response::builder()
+                        .status(StatusCode::BAD_REQUEST)
+                        .body("Only tunneling of HTTP or HTTPS is supported".into())
+                        .unwrap(),
+                );
+            }
+        }
+
+        *self.state.lock().unwrap() = State::Tunnel(host);
+
         Ok(Response::builder()
-            .status(StatusCode::INTERNAL_SERVER_ERROR)
+            .status(StatusCode::OK)
             .body(Body::empty())
             .unwrap())
     }
@@ -44,6 +59,9 @@ impl ProxyService {
     async fn handle_proxy(self, mut req: Request<Body>) -> Result<Response<Body>, Box<dyn std::error::Error + Send + Sync>> {
         // Remove headers that shouldn't be forwarded to upstream
         remove_proxy_headers(&mut req);
+
+        // Add some additional proxy headers
+        add_proxy_headers(&mut req);
 
         // Make request to upstream server and return the response to the client
         let client = Client::builder().build::<_, Body>(self.connector);
