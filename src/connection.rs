@@ -39,7 +39,7 @@ impl Connection {
         }
     }
 
-    pub async fn serve(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn serve(&self) -> Result<(), Box<dyn std::error::Error>> {
         let http = Http::new();
 
         http.serve_connection(
@@ -53,19 +53,25 @@ impl Connection {
                 debug!("Request proxied, nothing else to do");
             },
             State::Tunnel(uri) => {
-                let mut stream = TcpStream::connect(uri).await?;
-                let (mut client_read, mut client_write) = split(self.socket.clone());
-                let (mut server_read, mut server_write) = split(stream);
-
-                tokio::spawn(async move {
-                    client_read.copy(&mut server_write).await;
-                });
-                tokio::spawn(async move {
-                    server_read.copy(&mut client_write).await;
-                });
+                self.tunnel(&uri).await?;
             },
             State::Mitm(_uri) => {},
         };
+
+        Ok(())
+    }
+
+    async fn tunnel(&self, uri: &str) -> Result<(), Box<dyn std::error::Error>> {
+        let mut stream = TcpStream::connect(uri).await?;
+        let (mut client_read, mut client_write) = split(self.socket.clone());
+        let (mut server_read, mut server_write) = split(stream);
+
+        tokio::spawn(async move {
+            client_read.copy(&mut server_write).await;
+        });
+        tokio::spawn(async move {
+            server_read.copy(&mut client_write).await;
+        });
 
         Ok(())
     }
