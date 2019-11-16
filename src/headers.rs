@@ -30,7 +30,7 @@ pub fn get_host(req: &Request<Body>) -> Result<String, Box<dyn std::error::Error
         (None, Some(authority)) => {
             Ok(authority.as_str().to_string())
         },
-        (Some(host), Some(authority)) => {
+        (Some(_), Some(authority)) => {
             Ok(authority.as_str().to_string())
         },
         (None, None) => Err(Box::new(NoHostError)),

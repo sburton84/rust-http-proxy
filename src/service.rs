@@ -70,7 +70,7 @@ impl ProxyService {
         let client = Client::builder().build::<_, Body>(self.connector);
         let response = client.request(req).await;
 
-        response.or_else(|e| {
+        response.or_else(|_| {
             Ok(Response::builder()
                 .status(StatusCode::INTERNAL_SERVER_ERROR)
                 .body(Body::empty())

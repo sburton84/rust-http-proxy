@@ -60,8 +60,9 @@ impl Connection {
                 // CONNECT request which should open a tunnel to the upstream server
                 self.tunnel(&uri).await?;
             },
-            State::Mitm(_uri) => {
+            State::Mitm(uri) => {
                 // CONNECT request where we should also MitM the TLS tunnel
+                self.mitm(&uri).await?
             },
         };
 
@@ -70,7 +71,7 @@ impl Connection {
 
     async fn tunnel(&self, uri: &str) -> Result<(), Box<dyn std::error::Error>> {
         // Connect to the upstream server
-        let mut stream = TcpStream::connect(uri).await?;
+        let stream = TcpStream::connect(uri).await?;
 
         let (mut client_read, mut client_write) = split(self.socket.clone());
         let (mut server_read, mut server_write) = split(stream);
@@ -83,6 +84,14 @@ impl Connection {
         tokio::spawn(async move {
             server_read.copy(&mut client_write).await;
         });
+
+        Ok(())
+    }
+
+    async fn mitm(&self, uri: &str) -> Result<(), Box<dyn std::error::Error>> {
+        // Connect to the upstream server
+        let stream = TcpStream::connect(uri).await?;
+
 
         Ok(())
     }
