@@ -48,8 +48,11 @@ impl ProxyService {
             }
         }
 
+        // Set the state to indicate to the Connection that it should tunnel any subsequent
+        // data to the upstream server
         *self.state.lock().unwrap() = State::Tunnel(host);
 
+        // Return an HTTP 200 response
         Ok(Response::builder()
             .status(StatusCode::OK)
             .body(Body::empty())

@@ -42,6 +42,9 @@ impl Connection {
     pub async fn serve(&self) -> Result<(), Box<dyn std::error::Error>> {
         let http = Http::new();
 
+        // Handle the initial HTTP request. If this is a plaintext request then this will
+        // also make the upstream request and forward the response. If it's a CONNECT request
+        // it will set the appropriate state so we can continue to handle it here.
         http.serve_connection(
             self.socket.clone(),
             ProxyService::new(self.state.clone(), self.connector.clone()),
@@ -50,22 +53,30 @@ impl Connection {
         let state = self.state.lock().unwrap().clone();
         match state {
             State::Proxy => {
+                // Plaintext request was already handled
                 debug!("Request proxied, nothing else to do");
             },
             State::Tunnel(uri) => {
+                // CONNECT request which should open a tunnel to the upstream server
                 self.tunnel(&uri).await?;
             },
-            State::Mitm(_uri) => {},
+            State::Mitm(_uri) => {
+                // CONNECT request where we should also MitM the TLS tunnel
+            },
         };
 
         Ok(())
     }
 
     async fn tunnel(&self, uri: &str) -> Result<(), Box<dyn std::error::Error>> {
+        // Connect to the upstream server
         let mut stream = TcpStream::connect(uri).await?;
+
         let (mut client_read, mut client_write) = split(self.socket.clone());
         let (mut server_read, mut server_write) = split(stream);
 
+        // Spawn futures to copy all subsequent data from the client to the server
+        // and from the server to the client
         tokio::spawn(async move {
             client_read.copy(&mut server_write).await;
         });
