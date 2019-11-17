@@ -5,5 +5,6 @@ mod proxy;
 mod service;
 mod utils;
 mod crypto;
+mod config;
 
 pub use proxy::Proxy;

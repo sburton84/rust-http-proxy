@@ -12,7 +12,7 @@ use {
     std::sync::{
         Arc, Mutex,
     },
-    log::debug,
+    log::{debug, warn},
     tokio::io::split,
     tokio::io::AsyncReadExt,
 };
@@ -79,10 +79,14 @@ impl Connection {
         // Spawn futures to copy all subsequent data from the client to the server
         // and from the server to the client
         tokio::spawn(async move {
-            client_read.copy(&mut server_write).await;
+            if let Err(e) = client_read.copy(&mut server_write).await {
+                warn!("Error copy data from client to server: {}", e);
+            }
         });
         tokio::spawn(async move {
-            server_read.copy(&mut client_write).await;
+            if let Err(e) = server_read.copy(&mut client_write).await {
+                warn!("Error copy data from server to client: {}", e);
+            }
         });
 
         Ok(())

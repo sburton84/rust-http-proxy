@@ -11,3 +11,7 @@
 # Ignore build output
 /target
 **/*.rs.bk
+
+# Ignore IDE files
+*.iml
+

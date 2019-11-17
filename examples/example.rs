@@ -7,7 +7,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Bind to port 8888
     let addr: SocketAddr = ("127.0.0.1".parse::<IpAddr>()?, 8888).into();
-    let mut proxy = Proxy::bind(&addr).await?;
+
+    let mut proxy = Proxy::new().unwrap();
+    proxy.add_listener(&addr);
 
     // Begin serving the proxy
     proxy.serve().await?;

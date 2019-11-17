@@ -9,7 +9,7 @@ use {
     std::task::Poll,
     std::pin::Pin,
     tower_service::Service,
-    futures_util::FutureExt,
+    futures::FutureExt,
 };
 
 /// Uses Hyper to handle the initial HTTP request

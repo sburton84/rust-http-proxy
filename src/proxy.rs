@@ -1,31 +1,56 @@
 use {
-    crate::connection::Connection,
+    crate::{
+        config::{
+            Config,
+            Listener,
+        },
+        connection::Connection,
+    },
     log::error,
     std::io,
     std::net::SocketAddr,
+    futures::{
+        stream::select_all,
+        StreamExt,
+    },
     tokio::net::TcpListener,
     hyper::client::HttpConnector,
     hyper_tls::HttpsConnector,
 };
 
 pub struct Proxy {
-    listener: TcpListener,
+    config: Config,
     connector: HttpsConnector<HttpConnector>,
 }
 
 impl Proxy {
-    pub async fn bind(addr: &SocketAddr) -> Result<Self, Box<dyn std::error::Error>> {
-        let listener = TcpListener::bind(addr).await?;
-        let connector = HttpsConnector::new()?;
-
+    pub fn new() -> Result<Self, Box<dyn std::error::Error>> {
         Ok(Proxy {
-            listener,
-            connector,
+            config: Config{
+                listeners: Vec::new(),
+            },
+            connector: HttpsConnector::new()?,
+        })
+    }
+
+    pub fn add_listener(&mut self, addr: &SocketAddr) {
+        self.config.listeners.push(Listener{
+            addr: *addr,
+            tls: false,
         })
     }
 
     pub async fn serve(&mut self) -> io::Result<()> {
-        while let Ok((socket, _)) = self.listener.accept().await {
+        let mut listeners = Vec::new();
+
+        for listener in &self.config.listeners {
+            // Push each stream of incoming connections onto the vector
+            listeners.push(TcpListener::bind(listener.addr).await?.incoming());
+        }
+
+        let mut select = select_all(listeners);
+
+        while let Some(Ok(socket)) = select.next().await {
             let connector = self.connector.clone();
 
             tokio::spawn(async {
@@ -38,6 +63,6 @@ impl Proxy {
             });
         }
 
-        return Ok(());
+        Ok(())
     }
 }
