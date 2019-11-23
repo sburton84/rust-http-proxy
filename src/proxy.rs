@@ -1,21 +1,25 @@
+use futures::{FutureExt, TryFutureExt, TryStreamExt};
+use tokio::net::TcpStream;
 use {
     crate::{
-        config::{
-            Config,
-            Listener,
-        },
+        config::{Config, Listener, ListenerType},
         connection::Connection,
+        utils::TcpOrTlsStream,
     },
-    log::error,
-    std::io,
-    std::net::SocketAddr,
-    futures::{
-        stream::select_all,
-        StreamExt,
-    },
-    tokio::net::TcpListener,
+    futures::{stream::select_all, Stream, StreamExt},
     hyper::client::HttpConnector,
     hyper_tls::HttpsConnector,
+    log::error,
+    native_tls::{Identity, TlsAcceptor as NativeTlsAcceptor},
+    std::{net::SocketAddr, pin::Pin},
+    tokio::{
+        io::{AsyncRead, AsyncWrite},
+        net::TcpListener,
+
+    },
+    tokio_tls::{
+        TlsAcceptor,
+    },
 };
 
 pub struct Proxy {
@@ -26,7 +30,7 @@ pub struct Proxy {
 impl Proxy {
     pub fn new() -> Result<Self, Box<dyn std::error::Error>> {
         Ok(Proxy {
-            config: Config{
+            config: Config {
                 listeners: Vec::new(),
             },
             connector: HttpsConnector::new()?,
@@ -34,25 +38,65 @@ impl Proxy {
     }
 
     pub fn add_listener(&mut self, addr: &SocketAddr) {
-        self.config.listeners.push(Listener{
+        self.config.listeners.push(Listener {
             addr: *addr,
-            tls: false,
-        })
+            type_: ListenerType::Plain,
+        });
     }
 
-    pub async fn serve(&mut self) -> io::Result<()> {
-        let mut listeners = Vec::new();
+    pub fn add_tls_listener(&mut self, addr: &SocketAddr, identity: Identity) {
+        self.config.listeners.push(Listener {
+            addr: *addr,
+            type_: ListenerType::Tls { identity: identity },
+        });
+    }
 
-        for listener in &self.config.listeners {
+    pub async fn serve(self) -> Result<(), Box<dyn std::error::Error>> {
+        let mut listeners: Vec<Pin<Box<dyn Stream<Item=Result<TcpOrTlsStream, Box<dyn std::error::Error>>>>>> = Vec::new();
+
+        for listener in self.config.listeners {
             // Push each stream of incoming connections onto the vector
-            listeners.push(TcpListener::bind(listener.addr).await?.incoming());
+            match listener.type_ {
+                ListenerType::Plain => {
+                    listeners.push(
+                        TcpListener::bind(listener.addr).await?.incoming().map_err(|e| {
+                            Box::new(e) as Box<dyn std::error::Error>
+                        }).map_ok(|sock| {
+                            TcpOrTlsStream::Tcp(sock)
+                        }).boxed()
+                    );
+                }
+                ListenerType::Tls { identity } => {
+                    let tls_cx = NativeTlsAcceptor::builder(identity).build()?;
+                    let acceptor = TlsAcceptor::from(tls_cx);
+
+                    let stream = TcpListener::bind(listener.addr).await?.incoming().map_err(|e| {
+                        Box::new(e) as Box<dyn std::error::Error>
+                    });
+
+                    let stream = stream.and_then(move |sock| {
+                        acceptor.accept(sock).map_err(|e| {
+                            Box::new(e) as Box<dyn std::error::Error>
+                        })
+                    });
+
+                    let stream = stream.map_ok(|sock| {
+                        TcpOrTlsStream::Tls(sock)
+                    }).boxed();
+
+                    listeners.push(stream);
+                }
+            }
         }
 
+        // Select between all the listener streams, producing a single stream of incoming connections
         let mut select = select_all(listeners);
 
+        // Iterate over incoming connections
         while let Some(Ok(socket)) = select.next().await {
             let connector = self.connector.clone();
 
+            // Spawn a new handler for this connection
             tokio::spawn(async {
                 match Connection::new(socket, connector).serve().await {
                     Ok(()) => {}

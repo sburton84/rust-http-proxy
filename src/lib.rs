@@ -1,10 +1,12 @@
+#![feature(async_closure)]
+
+mod config;
 mod connection;
+mod crypto;
 mod error;
 mod headers;
 mod proxy;
 mod service;
 mod utils;
-mod crypto;
-mod config;
 
 pub use proxy::Proxy;

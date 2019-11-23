@@ -1,39 +1,36 @@
 use {
     crate::{
         service::ProxyService,
-        utils,
+        utils::{
+            SyncSocket,
+            TcpOrTlsStream,
+        }
     },
-    hyper::{
-        client::HttpConnector,
-        server::conn::Http,
-    },
+    hyper::{client::HttpConnector, server::conn::Http},
     hyper_tls::HttpsConnector,
-    tokio::net::TcpStream,
-    std::sync::{
-        Arc, Mutex,
-    },
     log::{debug, warn},
-    tokio::io::split,
-    tokio::io::AsyncReadExt,
+    std::sync::{Arc, Mutex},
+    tokio::io::{split, AsyncReadExt},
+    tokio::net::TcpStream,
 };
 
 #[derive(Clone)]
-pub enum State{
+pub enum State {
     Proxy,
     Tunnel(String),
     Mitm(String),
 }
 
 pub struct Connection {
-    socket: utils::SyncSocket,
+    socket: SyncSocket,
     connector: HttpsConnector<HttpConnector>,
     state: Arc<Mutex<State>>,
 }
 
 impl Connection {
-    pub fn new(socket: TcpStream, connector: HttpsConnector<HttpConnector>) -> Self {
+    pub fn new(socket: TcpOrTlsStream, connector: HttpsConnector<HttpConnector>) -> Self {
         Connection {
-            socket: utils::SyncSocket::new(socket),
+            socket: SyncSocket::new(socket),
             connector: connector,
             state: Arc::new(Mutex::new(State::Proxy)),
         }
@@ -48,22 +45,23 @@ impl Connection {
         http.serve_connection(
             self.socket.clone(),
             ProxyService::new(self.state.clone(), self.connector.clone()),
-        ).await?;
+        )
+        .await?;
 
         let state = self.state.lock().unwrap().clone();
         match state {
             State::Proxy => {
                 // Plaintext request was already handled
                 debug!("Request proxied, nothing else to do");
-            },
+            }
             State::Tunnel(uri) => {
                 // CONNECT request which should open a tunnel to the upstream server
                 self.tunnel(&uri).await?;
-            },
+            }
             State::Mitm(uri) => {
                 // CONNECT request where we should also MitM the TLS tunnel
                 self.mitm(&uri).await?
-            },
+            }
         };
 
         Ok(())
@@ -95,7 +93,6 @@ impl Connection {
     async fn mitm(&self, uri: &str) -> Result<(), Box<dyn std::error::Error>> {
         // Connect to the upstream server
         let stream = TcpStream::connect(uri).await?;
-
 
         Ok(())
     }

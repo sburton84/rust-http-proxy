@@ -1,5 +1,5 @@
-use hyper::{header, Body, Request};
 use crate::error::NoHostError;
+use hyper::{header, Body, Request};
 
 pub fn remove_proxy_headers(req: &mut Request<Body>) {
     // Remove headers that shouldn't be forwarded to upstream
@@ -24,15 +24,9 @@ pub fn get_host(req: &Request<Body>) -> Result<String, Box<dyn std::error::Error
 
     // TODO: Appropriate logic based on https://tools.ietf.org/html/rfc7230#section-5.4
     match (host, uri) {
-        (Some(host), None) => {
-            Ok(host.to_str()?.to_string())
-        },
-        (None, Some(authority)) => {
-            Ok(authority.as_str().to_string())
-        },
-        (Some(_), Some(authority)) => {
-            Ok(authority.as_str().to_string())
-        },
+        (Some(host), None) => Ok(host.to_str()?.to_string()),
+        (None, Some(authority)) => Ok(authority.as_str().to_string()),
+        (Some(_), Some(authority)) => Ok(authority.as_str().to_string()),
         (None, None) => Err(Box::new(NoHostError)),
     }
 }
