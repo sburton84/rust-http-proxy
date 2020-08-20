@@ -96,7 +96,7 @@ impl SyncSocket {
 
 impl AsyncRead for SyncSocket {
     fn poll_read(
-        mut self: Pin<&mut Self>,
+        self: Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
         buf: &mut [u8],
     ) -> Poll<io::Result<usize>> {
@@ -106,7 +106,7 @@ impl AsyncRead for SyncSocket {
 
 impl AsyncWrite for SyncSocket {
     fn poll_write(
-        mut self: Pin<&mut Self>,
+        self: Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
         buf: &[u8],
     ) -> Poll<Result<usize, io::Error>> {
@@ -114,14 +114,14 @@ impl AsyncWrite for SyncSocket {
     }
 
     fn poll_flush(
-        mut self: Pin<&mut Self>,
+        self: Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
     ) -> Poll<Result<(), io::Error>> {
         AsyncWrite::poll_flush(Pin::new(&mut *self.stream.lock().unwrap()), cx)
     }
 
     fn poll_shutdown(
-        mut self: Pin<&mut Self>,
+        self: Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
     ) -> Poll<Result<(), io::Error>> {
         AsyncWrite::poll_shutdown(Pin::new(&mut *self.stream.lock().unwrap()), cx)

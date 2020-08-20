@@ -1,26 +1,21 @@
-use futures::{FutureExt, TryFutureExt, TryStreamExt};
-use tokio::net::TcpStream;
 use {
     crate::{
         config::{Config, Listener, ListenerType},
         connection::Connection,
         utils::TcpOrTlsStream,
     },
-    futures::{stream::select_all, Stream, StreamExt},
+    futures::{TryFutureExt, TryStreamExt, stream::select_all, Stream, StreamExt},
     hyper::client::HttpConnector,
     hyper_tls::HttpsConnector,
     log::error,
     native_tls::{Identity, TlsAcceptor as NativeTlsAcceptor},
     std::{net::SocketAddr, pin::Pin},
-    tokio::{
-        io::{AsyncRead, AsyncWrite},
-        net::TcpListener,
-
-    },
+    tokio::net::TcpListener,
     tokio_tls::{
         TlsAcceptor,
     },
 };
+use std::sync::Arc;
 
 pub struct Proxy {
     config: Config,
@@ -70,14 +65,20 @@ impl Proxy {
                     let tls_cx = NativeTlsAcceptor::builder(identity).build()?;
                     let acceptor = TlsAcceptor::from(tls_cx);
 
-                    let stream = TcpListener::bind(listener.addr).await?.incoming().map_err(|e| {
+                    let stream = TcpListener::bind(listener.addr).await?.map_err(|e| {
                         Box::new(e) as Box<dyn std::error::Error>
                     });
 
                     let stream = stream.and_then(move |sock| {
-                        acceptor.accept(sock).map_err(|e| {
-                            Box::new(e) as Box<dyn std::error::Error>
-                        })
+                        let acceptor = acceptor.clone();
+
+                        async move {
+                            let acceptor = acceptor.clone();
+
+                            acceptor.accept(sock).map_err(|e| {
+                                Box::new(e) as Box<dyn std::error::Error>
+                            }).await
+                        }
                     });
 
                     let stream = stream.map_ok(|sock| {

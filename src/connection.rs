@@ -10,7 +10,7 @@ use {
     hyper_tls::HttpsConnector,
     log::{debug, warn},
     std::sync::{Arc, Mutex},
-    tokio::io::{split, AsyncReadExt},
+    tokio::io::split,
     tokio::net::TcpStream,
 };
 
@@ -93,6 +93,9 @@ impl Connection {
     async fn mitm(&self, uri: &str) -> Result<(), Box<dyn std::error::Error>> {
         // Connect to the upstream server
         let stream = TcpStream::connect(uri).await?;
+
+        // TODO
+        unimplemented!();
 
         Ok(())
     }
