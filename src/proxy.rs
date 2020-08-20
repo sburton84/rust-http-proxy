@@ -29,7 +29,7 @@ impl Proxy {
             config: Config{
                 listeners: Vec::new(),
             },
-            connector: HttpsConnector::new()?,
+            connector: HttpsConnector::new(),
         })
     }
 
@@ -45,7 +45,7 @@ impl Proxy {
 
         for listener in &self.config.listeners {
             // Push each stream of incoming connections onto the vector
-            listeners.push(TcpListener::bind(listener.addr).await?.incoming());
+            listeners.push(TcpListener::bind(listener.addr).await?);
         }
 
         let mut select = select_all(listeners);

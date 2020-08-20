@@ -20,7 +20,7 @@ pub fn get_host(req: &Request<Body>) -> Result<String, Box<dyn std::error::Error
     let host = req.headers().get(header::HOST);
 
     // Get the Authority in the request start line
-    let uri = req.uri().authority_part();
+    let uri = req.uri().authority();
 
     // TODO: Appropriate logic based on https://tools.ietf.org/html/rfc7230#section-5.4
     match (host, uri) {

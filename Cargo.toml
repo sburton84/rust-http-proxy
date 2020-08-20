@@ -5,15 +5,16 @@ authors = ["Sean Burton <sean.burton@thalesesecurity.com>"]
 edition = "2018"
 
 [dependencies]
-log = "^0.4.8"
-tokio = "=0.2.0-alpha.6"
-tokio-tls = "=0.3.0-alpha.6"
-hyper = "=0.13.0-alpha.4"
-hyper-tls = "=0.4.0-alpha.4"
-http = "^0.1.19"
-futures-preview = "=0.3.0-alpha.19"
-tower-service = "=0.3.0-alpha.2"
-openssl = "^0.10.25"
+log = "^0.4.11"
+tokio = { version="^0.2.22", features=["tcp", "dns", "rt-threaded", "macros"] }
+tokio-tls = "^0.3.1"
+hyper = "^0.13.7"
+hyper-tls = "^0.4.3"
+native-tls = "^0.2.4"
+http = "^0.2.1"
+futures = "^0.3.5"
+tower-service = "^0.3.0"
+openssl = "^0.10.30"
 
 [dev-dependencies]
-env_logger = "^0.6.2"
+env_logger = "^0.7.1"
