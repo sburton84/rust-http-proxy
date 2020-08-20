@@ -33,7 +33,7 @@ impl Proxy {
             config: Config {
                 listeners: Vec::new(),
             },
-            connector: HttpsConnector::new()?,
+            connector: HttpsConnector::new(),
         })
     }
 
@@ -59,7 +59,7 @@ impl Proxy {
             match listener.type_ {
                 ListenerType::Plain => {
                     listeners.push(
-                        TcpListener::bind(listener.addr).await?.incoming().map_err(|e| {
+                        TcpListener::bind(listener.addr).await?.map_err(|e| {
                             Box::new(e) as Box<dyn std::error::Error>
                         }).map_ok(|sock| {
                             TcpOrTlsStream::Tcp(sock)
