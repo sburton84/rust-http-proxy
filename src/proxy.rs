@@ -15,7 +15,6 @@ use {
         TlsAcceptor,
     },
 };
-use std::sync::Arc;
 
 pub struct Proxy {
     config: Config,

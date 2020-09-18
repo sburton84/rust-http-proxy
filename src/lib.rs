@@ -1,5 +1,3 @@
-#![feature(async_closure)]
-
 mod config;
 mod connection;
 mod crypto;
